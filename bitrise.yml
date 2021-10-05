@@ -1,0 +1,138 @@
+---
+format_version: '11'
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: ios
+trigger_map:
+- push_branch: "*"
+  workflow: primary
+- pull_request_source_branch: "*"
+  workflow: primary
+workflows:
+  bundle:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@6: {}
+    - cache-pull@2: {}
+    - certificate-and-profile-installer@1: {}
+    - script@1:
+        title: Do anything with Script step
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            jenv global 11
+            export JAVA_HOME="$(jenv prefix)"
+            envman add --key JAVA_HOME --value "$(jenv prefix)"
+    - android-build@0:
+        inputs:
+        - variant: Debug
+    - xcodebuild@0:
+        inputs:
+        - xcodebuild_scheme: shared
+        - xcodebuild_actions: build
+        - xcodebuild_workspace: "$BITRISE_SOURCE_DIR/ios/KaMPKitiOS.xcworkspace"
+    - cocoapods-install@2: {}
+    - xcode-archive@3: {}
+    - deploy-to-bitrise-io@1: {}
+    - cache-push@2: {}
+  deploy:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@6: {}
+    - cache-pull@2: {}
+    - script@1:
+        title: Do anything with Script step
+    - certificate-and-profile-installer@1: {}
+    - cocoapods-install@2: {}
+    - xcode-test@3:
+        inputs:
+        - project_path: "$BITRISE_PROJECT_PATH"
+        - scheme: "$BITRISE_SCHEME"
+    - xcode-archive@3:
+        inputs:
+        - project_path: "$BITRISE_PROJECT_PATH"
+        - scheme: "$BITRISE_SCHEME"
+        - export_method: "$BITRISE_EXPORT_METHOD"
+    - deploy-to-bitrise-io@1: {}
+    - cache-push@2: {}
+    meta:
+      bitrise.io:
+        stack: osx-xcode-13.0.x
+  primary:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@6: {}
+    - cache-pull@2: {}
+    - certificate-and-profile-installer@1: {}
+    - script@1:
+        title: Do anything with Script step
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            jenv global 11
+            export JAVA_HOME="$(jenv prefix)"
+            envman add --key JAVA_HOME --value "$(jenv prefix)"
+    - android-build@0:
+        inputs:
+        - variant: Debug
+    - xcodebuild@0:
+        inputs:
+        - xcodebuild_scheme: shared
+        - xcodebuild_destination: generic/platform=iOS
+        - xcodebuild_actions: build
+        - xcodebuild_output_formatter: xcpretty
+        - xcodebuild_workspace: "$BITRISE_SOURCE_DIR/ios/KaMPKitiOS.xcworkspace"
+    - cocoapods-install@2: {}
+    - xcode-test@3:
+        inputs:
+        - project_path: "$BITRISE_PROJECT_PATH"
+        - scheme: "$BITRISE_SCHEME"
+    - deploy-to-bitrise-io@1: {}
+    - cache-push@2: {}
+  test:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@6: {}
+    - script@1:
+        title: Do anything with Script step
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            jenv global 11
+            export JAVA_HOME="$(jenv prefix)"
+            envman add --key JAVA_HOME --value "$(jenv prefix)"
+    - android-unit-test@1:
+        inputs:
+        - is_debug: 'true'
+        - arguments: ":shared:allTests"
+        - module: shared
+    - deploy-to-bitrise-io@1: {}
+app:
+  envs:
+  - opts:
+      is_expand: false
+    BITRISE_PROJECT_PATH: ios/KaMPKitiOS.xcworkspace
+  - opts:
+      is_expand: false
+    BITRISE_SCHEME: KaMPKitiOS
+  - opts:
+      is_expand: false
+    BITRISE_EXPORT_METHOD: development
